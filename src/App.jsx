@@ -86,8 +86,19 @@ function App() {
     <>
       <h1>
         The app only accepts URLs from resources that allow cross-origin
-        requests for images, like <strong>Unsplash</strong> or{" "}
-        <strong>Pixabay</strong>.
+        requests for images, like{" "}
+        <strong>
+          <a href="https://unsplash.com/" target="_blank">
+            Unsplash
+          </a>
+        </strong>{" "}
+        or{" "}
+        <strong>
+          <a href="https://pixabay.com/" target="_blank">
+            Pixabay
+          </a>
+        </strong>
+        .
       </h1>
       <div className="inputs">
         <input
