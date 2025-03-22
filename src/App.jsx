@@ -32,12 +32,8 @@ function App() {
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
 
-    const x = Math.floor(
-      (event.clientX - rect.left) * (imageSize.width / canvas.width)
-    );
-    const y = Math.floor(
-      (event.clientY - rect.top) * (imageSize.height / canvas.height)
-    );
+    const x = Math.floor(event.clientX - rect.left);
+    const y = Math.floor(event.clientY - rect.top);
 
     const pixelData = ctx.getImageData(x, y, 1, 1).data;
     const color = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
