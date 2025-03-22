@@ -1,0 +1,54 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+h1 {
+  font-weight: normal;
+  font-size: 1.8em;
+  line-height: 1.1;
+  margin: 64px;
+}
+
+input {
+  border-radius: 8px;
+  border: 2px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  transition: border-color 0.25s;
+}
+input:hover {
+  border-color: #690e66;
+}
+input:focus,
+input:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+.inputs {
+  display: flex;
+  gap: 32px;
+
+  input[type="file"] {
+    width: 210px;
+    cursor: pointer;
+  }
+
+  .url {
+    flex: 1;
+  }
+}
+
+.canvas-container {
+  margin-top: 48px;
+  margin-bottom: 36px;
+}
+
+.info {
+  font-size: 1.25em;
+}
