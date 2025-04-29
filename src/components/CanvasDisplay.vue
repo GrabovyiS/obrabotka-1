@@ -3,44 +3,64 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch, onBeforeUnmount } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 
 const props = defineProps({
-  image: Object,
+  image: Object, // full image element
+  scale: {
+    // current zoom (e.g. 1.0 = 100%)
+    type: Number,
+    default: 1.0,
+  },
 });
 
 const canvasRef = ref(null);
 let ctx = null;
 
-function renderImage(image) {
-  if (!image || !canvasRef.value) return;
-
+function renderImage() {
   const canvas = canvasRef.value;
-  ctx = canvas.getContext("2d");
+  if (!canvas || !props.image) return;
 
-  canvas.width = image.width;
-  canvas.height = image.height;
+  const image = props.image;
+  const padding = 50;
+  const scale = props.scale;
+
+  const displayWidth = Math.floor(image.width * scale);
+  const displayHeight = Math.floor(image.height * scale);
+
+  // Set canvas size to fill screen with padding
+  const availableWidth = window.innerWidth - 2 * padding;
+  const availableHeight = window.innerHeight - 2 * padding;
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(image, 0, 0);
+
+  // Center scaled image
+  const offsetX = Math.floor((canvas.width - displayWidth) / 2);
+  const offsetY = Math.floor((canvas.height - displayHeight) / 2);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(image, offsetX, offsetY, displayWidth, displayHeight);
 }
 
 function handleResize() {
-  if (props.image) {
-    renderImage(props.image);
-  }
+  renderImage();
 }
 
 watch(() => props.image, renderImage);
+watch(() => props.scale, renderImage);
 onMounted(() => window.addEventListener("resize", handleResize));
 onBeforeUnmount(() => window.removeEventListener("resize", handleResize));
 </script>
 
 <style scoped>
 canvas {
-  border: 1px solid #ccc;
-  max-width: 100%;
-  height: auto;
   display: block;
-  margin-bottom: 1rem;
+  width: 100vw;
+  height: calc(100vh - 80px);
 }
 </style>
