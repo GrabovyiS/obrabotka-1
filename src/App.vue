@@ -5,9 +5,35 @@
       <button type="button" @click="showResizeModal = true" class="resize-btn">
         Resize
       </button>
+      <button
+        type="button"
+        :class="['tool-btn', { active: activeTool === TOOLS.HAND }]"
+        @click="setTool(TOOLS.HAND)"
+        title="Hand Tool (H): Move image with mouse or arrows"
+      >
+        Hand
+      </button>
+
+      <button
+        type="button"
+        :class="['tool-btn', { active: activeTool === TOOLS.EYEDROPPER }]"
+        @click="setTool(TOOLS.EYEDROPPER)"
+        title="Eyedropper Tool (I): Pick pixel color"
+      >
+        Eyedropper
+      </button>
     </div>
 
-    <CanvasDisplay :image="imageElement" :scale="scale" />
+    <div class="main-panel">
+      <CanvasDisplay
+        :image="imageElement"
+        :scale="scale"
+        :activeTool="activeTool"
+        @color-pick="handleColorPick"
+      />
+      <ColorInspector :colors="pickedColors" />
+    </div>
+
     <StatusBar
       :imageMeta="imageMeta"
       :scale="scale"
@@ -25,10 +51,13 @@
 
 <script setup>
 import { ref } from "vue";
+
 import FileUploader from "./components/FileUploader.vue";
 import CanvasDisplay from "./components/CanvasDisplay.vue";
 import StatusBar from "./components/StatusBar.vue";
 import ResizeModal from "./components/ResizeModal.vue";
+import ColorInspector from "./components/ColorInspector.vue";
+
 import { parseCustomImage } from "./utils/imageParser";
 import {
   nearestNeighborInterpolation,
@@ -119,6 +148,32 @@ async function onResizeConfirm({ width, height, method }) {
     colorDepth: imageMeta.value.colorDepth,
   };
 }
+
+const activeTool = ref(null);
+
+const TOOLS = {
+  NONE: null,
+  HAND: "hand",
+  EYEDROPPER: "eyedropper",
+};
+
+function setTool(tool) {
+  activeTool.value = activeTool.value === tool ? null : tool;
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyH") setTool(TOOLS.HAND);
+  if (e.code === "KeyI") setTool(TOOLS.EYEDROPPER);
+});
+
+const pickedColors = ref({
+  primary: null,
+  secondary: null,
+});
+
+function handleColorPick({ x, y, rgba, modifier }) {
+  pickedColors.value[modifier] = { x, y, rgba };
+}
 </script>
 
 <style>
@@ -151,10 +206,39 @@ body {
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s ease;
 }
 
 .resize-btn:hover {
   background: #005fa3;
+}
+
+.tool-btn {
+  padding: 0.5rem 0.75rem;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tool-btn.active {
+  background: #007acc;
+  color: #fff;
+  border-color: #005fa3;
+}
+
+.tool-btn:hover {
+  background: #ddd;
+}
+
+.main-panel {
+  display: flex;
+  flex-direction: row;
+  height: calc(100vh - 70px);
+  overflow: hidden;
+}
+
+canvas {
+  max-width: calc(100% - 250px);
 }
 </style>
