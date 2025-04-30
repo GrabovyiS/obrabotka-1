@@ -1,9 +1,16 @@
 <template>
-  <canvas ref="canvasRef" @click="onCanvasClick"></canvas>
+  <canvas
+    ref="canvasRef"
+    @mousedown="startPan"
+    @mouseup="endPan"
+    @mouseleave="endPan"
+    @mousemove="onMouseMove"
+    @click="onCanvasClick"
+  ></canvas>
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, reactive } from "vue";
 
 const props = defineProps({
   image: Object,
@@ -16,50 +23,81 @@ const emit = defineEmits(["color-pick"]);
 const canvasRef = ref(null);
 const offset = reactive({ x: 0, y: 0 });
 const canvasTranslation = reactive({ x: 0, y: 0 });
-const layoutPadding = 50;
+
+let ctx = null;
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+
+function handleKeyDown(e) {
+  if (props.activeTool !== "hand") return;
+  const step = 20;
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+    e.preventDefault();
+    if (e.key === "ArrowLeft") canvasTranslation.x += step;
+    if (e.key === "ArrowRight") canvasTranslation.x -= step;
+    if (e.key === "ArrowUp") canvasTranslation.y += step;
+    if (e.key === "ArrowDown") canvasTranslation.y -= step;
+    renderImage();
+  }
+}
+
+function startPan(e) {
+  if (props.activeTool !== "hand") return;
+  dragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+}
+
+function endPan() {
+  dragging = false;
+}
+
+function onMouseMove(e) {
+  if (!dragging || props.activeTool !== "hand") return;
+  const dx = e.clientX - dragStart.x;
+  const dy = e.clientY - dragStart.y;
+  canvasTranslation.x += dx;
+  canvasTranslation.y += dy;
+  dragStart = { x: e.clientX, y: e.clientY };
+  renderImage();
+}
 
 function renderImage() {
-  if (!props.image || !canvasRef.value) return;
-
   const canvas = canvasRef.value;
-  const ctx = canvas.getContext("2d");
+  if (!canvas || !props.image) return;
+
   const image = props.image;
+  const scale = props.scale;
+
+  const displayWidth = image.width * scale;
+  const displayHeight = image.height * scale;
 
   const workspaceWidth = window.innerWidth;
   const workspaceHeight = window.innerHeight;
 
-  const maxWidth = workspaceWidth - 2 * layoutPadding;
-  const maxHeight = workspaceHeight - 2 * layoutPadding;
+  const padding = 50;
+  const maxWidth = workspaceWidth - 2 * padding;
+  const maxHeight = workspaceHeight - 2 * padding;
 
-  const scaleFactor = props.scale;
-  const displayWidth = image.width * scaleFactor;
-  const displayHeight = image.height * scaleFactor;
-
-  const dx =
-    canvasTranslation.x + (maxWidth - displayWidth) / 2 + layoutPadding;
-  const dy =
-    canvasTranslation.y + (maxHeight - displayHeight) / 2 + layoutPadding;
-
-  offset.x = dx;
-  offset.y = dy;
+  offset.x = canvasTranslation.x + (maxWidth - displayWidth) / 2 + padding;
+  offset.y = canvasTranslation.y + (maxHeight - displayHeight) / 2 + padding;
 
   canvas.width = workspaceWidth;
   canvas.height = workspaceHeight;
 
+  ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(image, dx, dy, displayWidth, displayHeight);
+  ctx.drawImage(image, offset.x, offset.y, displayWidth, displayHeight);
 }
 
 function onCanvasClick(event) {
   if (props.activeTool !== "eyedropper" || !props.image) return;
 
-  const canvas = canvasRef.value;
-  const rect = canvas.getBoundingClientRect();
-
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  const rect = canvasRef.value.getBoundingClientRect();
+  const scaleX = canvasRef.value.width / rect.width;
+  const scaleY = canvasRef.value.height / rect.height;
 
   const canvasX = (event.clientX - rect.left) * scaleX;
   const canvasY = (event.clientY - rect.top) * scaleY;
@@ -76,7 +114,7 @@ function onCanvasClick(event) {
     imageY < 0 ||
     imageY >= props.image.height
   ) {
-    console.warn("Click outside image bounds:", imageX, imageY);
+    console.warn("Clicked outside image bounds:", imageX, imageY);
     return;
   }
 
@@ -85,7 +123,6 @@ function onCanvasClick(event) {
   tempCanvas.height = props.image.height;
   const tempCtx = tempCanvas.getContext("2d");
   tempCtx.drawImage(props.image, 0, 0);
-
   const pixel = tempCtx.getImageData(imageX, imageY, 1, 1).data;
 
   emit("color-pick", {
@@ -103,8 +140,15 @@ function handleResize() {
 
 watch(() => props.image, renderImage);
 watch(() => props.scale, renderImage);
-onMounted(() => window.addEventListener("resize", handleResize));
-onBeforeUnmount(() => window.removeEventListener("resize", handleResize));
+
+onMounted(() => {
+  window.addEventListener("resize", handleResize);
+  window.addEventListener("keydown", handleKeyDown);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", handleResize);
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <style scoped>
