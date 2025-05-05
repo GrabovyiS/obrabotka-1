@@ -6,7 +6,7 @@
       @change="handleFileChange"
     />
     <input type="url" v-model="url" placeholder="Image URL" />
-    <button @click="handleUrlLoad">Load from URL</button>
+    <button class="url-button" @click="handleUrlLoad">Load from URL</button>
   </div>
 </template>
 
@@ -42,6 +42,10 @@ function handleFileChange(event) {
   display: flex;
   gap: 1rem;
   margin-right: 2rem;
+}
+
+.url-button {
+  border: 1px solid #ccc;
 }
 
 input[type="file"] {

@@ -1,6 +1,6 @@
 <template>
   <dialog ref="dialogRef" class="resize-modal">
-    <form @submit.prevent="applyResize">
+    <form ref="formRef" @submit.prevent="applyResize">
       <h2>Resize Image</h2>
 
       <div class="info">
@@ -18,14 +18,24 @@
 
       <label>
         Width:
-        <input v-model.number="width" type="number" min="1" />
+        <input
+          id="width"
+          v-model.number="width"
+          type="number"
+          min="1"
+          max="8192"
+          required
+        />
       </label>
+
       <label>
         Height:
         <input
           v-model.number="height"
           type="number"
           min="1"
+          max="8192"
+          required
           :disabled="lockAspect"
         />
       </label>
@@ -46,6 +56,8 @@
         </select>
       </label>
 
+      <p v-if="resizeError" class="error">{{ resizeError }}</p>
+
       <div class="buttons">
         <button type="submit">Apply</button>
         <button type="button" @click="close">Cancel</button>
@@ -64,6 +76,15 @@ const props = defineProps({
 const emit = defineEmits(["close", "confirm"]);
 
 const dialogRef = ref(null);
+const formRef = ref(null);
+
+const mode = ref("percent");
+const lockAspect = ref(true);
+const method = ref("bilinear");
+
+const width = ref(100);
+const height = ref(100);
+const resizeError = ref("");
 
 watch(
   () => props.open,
@@ -72,13 +93,6 @@ watch(
     else dialogRef.value?.close();
   }
 );
-
-const mode = ref("percent");
-const lockAspect = ref(true);
-const method = ref("bilinear");
-
-const width = ref(100);
-const height = ref(100);
 
 const originalMP = computed(() => {
   if (!props.imageMeta) return "0.00";
@@ -101,25 +115,30 @@ const newMP = computed(() => {
   return ((w * h) / 1_000_000).toFixed(2);
 });
 
-watch(width, (val) => {
-  if (lockAspect.value && mode.value === "pixels") {
-    const ratio = props.imageMeta.height / props.imageMeta.width;
-    height.value = Math.round(val * ratio);
-  }
-});
-
 function applyResize() {
+  const form = formRef.value;
+  resizeError.value = "";
+
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
   const w =
     mode.value === "percent"
       ? Math.round(props.imageMeta.width * (width.value / 100))
       : width.value;
+
   const h =
     mode.value === "percent"
       ? Math.round(props.imageMeta.height * (height.value / 100))
       : height.value;
 
-  if (w <= 0 || h <= 0) {
-    alert("Width and height must be positive.");
+  if (w < 1 || h < 1 || w > 8192 || h > 8192) {
+    resizeError.value =
+      w < 1 || h < 1
+        ? "Resulting size must be at least 1x1."
+        : "Resulting size must not exceed 8192 pixels.";
     return;
   }
 
@@ -164,7 +183,7 @@ function updateHeightFromWidth() {
   const aspectRatio = props.imageMeta.height / props.imageMeta.width;
 
   if (mode.value === "percent") {
-    height.value = width.value; // percent = same for both
+    height.value = width.value;
   } else {
     height.value = Math.round(width.value * aspectRatio);
   }
@@ -196,6 +215,17 @@ form {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.info {
+  font-size: 14px;
+  color: #444;
+}
+
+.error {
+  color: #c00;
+  font-size: 14px;
+  margin: 0;
 }
 
 .buttons {
