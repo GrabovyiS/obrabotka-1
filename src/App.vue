@@ -1,7 +1,10 @@
 <template>
   <div class="container">
     <div class="top-controls">
-      <FileUploader @file-selected="onFileSelected" />
+      <FileUploader
+        @file-selected="onFileSelected"
+        @url-selected="onUrlSelected"
+      />
       <button type="button" @click="showResizeModal = true" class="resize-btn">
         Resize
       </button>
@@ -30,6 +33,7 @@
         :scale="scale"
         :activeTool="activeTool"
         @color-pick="handleColorPick"
+        @hover-color="onHoverColor"
       />
       <ColorInspector :colors="pickedColors" />
     </div>
@@ -37,6 +41,8 @@
     <StatusBar
       :imageMeta="imageMeta"
       :scale="scale"
+      :hoverColor="hoverColor"
+      :clickColor="clickColor"
       @update:scale="scale = $event"
     />
 
@@ -51,7 +57,6 @@
 
 <script setup>
 import { ref } from "vue";
-
 import FileUploader from "./components/FileUploader.vue";
 import CanvasDisplay from "./components/CanvasDisplay.vue";
 import StatusBar from "./components/StatusBar.vue";
@@ -80,12 +85,15 @@ function calculateInitialScale(img) {
   return Math.min(scaleX, scaleY, 1.0);
 }
 
-async function onFileSelected(file) {
+async function onFileSelected({ file, buffer }) {
   const isCustom = file.name.endsWith(".gb7");
 
   if (isCustom) {
     try {
-      const { image, meta } = await parseCustomImage(file);
+      if (!buffer || !(buffer instanceof ArrayBuffer)) {
+        throw new Error("Invalid buffer received from uploader.");
+      }
+      const { image, meta } = await parseCustomImage(buffer);
       imageElement.value = image;
       imageMeta.value = meta;
       scale.value = calculateInitialScale(image);
@@ -93,24 +101,37 @@ async function onFileSelected(file) {
       alert(`Failed to load GrayBit-7 image: ${err.message}`);
     }
   } else {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const width = image.width;
-        const height = image.height;
-        const pixels = width * height;
-        const fileBits = file.size * 8;
-        const depth = Math.round(fileBits / pixels);
+    const image = new Image();
+    image.onload = () => {
+      const width = image.width;
+      const height = image.height;
+      const pixels = width * height;
+      const fileBits = file.size * 8;
+      const depth = Math.round(fileBits / pixels);
 
-        imageElement.value = image;
-        imageMeta.value = { width, height, colorDepth: depth };
-        scale.value = calculateInitialScale(image);
-      };
-      image.src = reader.result;
+      imageElement.value = image;
+      imageMeta.value = { width, height, colorDepth: depth };
+      scale.value = calculateInitialScale(image);
     };
-    reader.readAsDataURL(file);
+    image.src = URL.createObjectURL(file);
   }
+}
+
+function onUrlSelected(url) {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    imageElement.value = img;
+    const width = img.width;
+    const height = img.height;
+    const pixels = width * height;
+    const dummyFileSize = width * height * 3; // estimate 24bpp
+    const depth = Math.round((dummyFileSize * 8) / pixels);
+    imageMeta.value = { width, height, colorDepth: depth };
+    scale.value = calculateInitialScale(img);
+  };
+  img.onerror = () => alert("Failed to load image from URL.");
+  img.src = url;
 }
 
 async function onResizeConfirm({ width, height, method }) {
@@ -171,8 +192,18 @@ const pickedColors = ref({
   secondary: null,
 });
 
+const clickColor = ref(null);
+const hoverColor = ref(null);
+
 function handleColorPick({ x, y, rgba, modifier }) {
-  pickedColors.value[modifier] = { x, y, rgba };
+  if (activeTool.value === TOOLS.EYEDROPPER) {
+    pickedColors.value[modifier] = { x, y, rgba };
+  }
+  clickColor.value = { x, y, rgba };
+}
+
+function onHoverColor(data) {
+  hoverColor.value = data;
 }
 </script>
 

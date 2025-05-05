@@ -65,7 +65,9 @@ const hasAnyColor = computed(
 const filteredColors = computed(() => {
   const out = {};
   for (const key of ["primary", "secondary"]) {
-    if (props.colors[key]) out[key] = props.colors[key];
+    if (props.colors[key]) {
+      out[key] = props.colors[key];
+    }
   }
   return out;
 });

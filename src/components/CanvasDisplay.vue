@@ -17,8 +17,7 @@ const props = defineProps({
   scale: { type: Number, default: 1.0 },
   activeTool: { type: String, default: null },
 });
-
-const emit = defineEmits(["color-pick"]);
+const emit = defineEmits(["color-pick", "hover-color"]);
 
 const canvasRef = ref(null);
 const offset = reactive({ x: 0, y: 0 });
@@ -51,14 +50,18 @@ function endPan() {
   dragging = false;
 }
 
-function onMouseMove(e) {
-  if (!dragging || props.activeTool !== "hand") return;
-  const dx = e.clientX - dragStart.x;
-  const dy = e.clientY - dragStart.y;
-  canvasTranslation.x += dx;
-  canvasTranslation.y += dy;
-  dragStart = { x: e.clientX, y: e.clientY };
-  renderImage();
+function onMouseMove(event) {
+  if (dragging && props.activeTool === "hand") {
+    const dx = event.clientX - dragStart.x;
+    const dy = event.clientY - dragStart.y;
+    canvasTranslation.x += dx;
+    canvasTranslation.y += dy;
+    dragStart = { x: event.clientX, y: event.clientY };
+    renderImage();
+  }
+
+  const data = getPixelColorAtEvent(event);
+  if (data) emit("hover-color", data);
 }
 
 function renderImage() {
@@ -92,46 +95,50 @@ function renderImage() {
   ctx.drawImage(image, offset.x, offset.y, displayWidth, displayHeight);
 }
 
-function onCanvasClick(event) {
-  if (props.activeTool !== "eyedropper" || !props.image) return;
-
+function getPixelColorAtEvent(event) {
+  if (!props.image) return null;
   const rect = canvasRef.value.getBoundingClientRect();
   const scaleX = canvasRef.value.width / rect.width;
   const scaleY = canvasRef.value.height / rect.height;
-
   const canvasX = (event.clientX - rect.left) * scaleX;
   const canvasY = (event.clientY - rect.top) * scaleY;
-
   const localX = canvasX - offset.x;
   const localY = canvasY - offset.y;
-
   const imageX = Math.floor(localX / props.scale);
   const imageY = Math.floor(localY / props.scale);
-
   if (
     imageX < 0 ||
     imageX >= props.image.width ||
     imageY < 0 ||
     imageY >= props.image.height
-  ) {
-    console.warn("Clicked outside image bounds:", imageX, imageY);
-    return;
-  }
-
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = props.image.width;
-  tempCanvas.height = props.image.height;
-  const tempCtx = tempCanvas.getContext("2d");
+  )
+    return null;
+  const temp = document.createElement("canvas");
+  temp.width = props.image.width;
+  temp.height = props.image.height;
+  const tempCtx = temp.getContext("2d");
   tempCtx.drawImage(props.image, 0, 0);
   const pixel = tempCtx.getImageData(imageX, imageY, 1, 1).data;
-
-  emit("color-pick", {
+  return {
     x: imageX,
     y: imageY,
     rgba: [pixel[0], pixel[1], pixel[2], pixel[3]],
-    modifier:
-      event.altKey || event.ctrlKey || event.shiftKey ? "secondary" : "primary",
-  });
+  };
+}
+
+function onCanvasClick(event) {
+  if (!props.image) return;
+
+  const data = getPixelColorAtEvent(event);
+  if (data) {
+    emit("color-pick", {
+      ...data,
+      modifier:
+        event.altKey || event.ctrlKey || event.shiftKey
+          ? "secondary"
+          : "primary",
+    });
+  }
 }
 
 function handleResize() {

@@ -1,5 +1,4 @@
-export async function parseCustomImage(file) {
-  const buffer = await file.arrayBuffer();
+export async function parseCustomImage(buffer) {
   const data = new DataView(buffer);
 
   // Validate file signature
@@ -12,7 +11,6 @@ export async function parseCustomImage(file) {
     throw new Error("Invalid GrayBit-7 file signature");
   }
 
-  // Metadata
   const version = data.getUint8(4);
   if (version !== 0x01) throw new Error("Unsupported GrayBit-7 version");
 
@@ -24,7 +22,6 @@ export async function parseCustomImage(file) {
   const pixels = width * height;
   const pixelStart = 12;
 
-  // Build RGBA buffer
   const rgba = new Uint8ClampedArray(pixels * 4);
   for (let i = 0; i < pixels; i++) {
     const byte = data.getUint8(pixelStart + i);
@@ -38,7 +35,6 @@ export async function parseCustomImage(file) {
     rgba[idx + 3] = mask;
   }
 
-  // Draw to offscreen canvas
   const imageData = new ImageData(rgba, width, height);
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -49,8 +45,7 @@ export async function parseCustomImage(file) {
   image.src = canvas.toDataURL();
   await new Promise((resolve) => (image.onload = resolve));
 
-  // Calculate color depth from file size
-  const fileBits = file.size * 8;
+  const fileBits = buffer.byteLength * 8;
   const colorDepth = Math.round(fileBits / pixels);
 
   return {
