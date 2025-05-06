@@ -13,7 +13,6 @@
       >
         Resize
       </button>
-
       <button class="save-btn" @click="downloadImage" :disabled="!imageElement">
         Save
       </button>
@@ -33,10 +32,41 @@
       >
         Eyedropper
       </button>
+      <fieldset class="arrow-step-group">
+        <legend>Arrow Key Step</legend>
+        <label
+          ><input
+            type="radio"
+            name="step"
+            value="5"
+            v-model.number="arrowStep"
+          />
+          Slow</label
+        >
+        <label
+          ><input
+            type="radio"
+            name="step"
+            value="20"
+            v-model.number="arrowStep"
+          />
+          Normal</label
+        >
+        <label
+          ><input
+            type="radio"
+            name="step"
+            value="40"
+            v-model.number="arrowStep"
+          />
+          Fast</label
+        >
+      </fieldset>
     </div>
 
     <div class="main-panel">
       <CanvasDisplay
+        :arrowStep="Number(arrowStep)"
         :image="imageElement"
         :scale="scale"
         :activeTool="activeTool"
@@ -81,6 +111,7 @@ const imageElement = ref(null);
 const imageMeta = ref(null);
 const scale = ref(1.0);
 const showResizeModal = ref(false);
+const arrowStep = ref(20);
 
 function calculateInitialScale(img) {
   const padding = 50;
@@ -229,10 +260,19 @@ body {
   margin: 0;
 }
 
+* {
+  font-family: sans-serif;
+  box-sizing: border-box;
+}
+
+fieldset {
+  padding: 5px;
+  margin: 0;
+}
+
 .container {
   max-width: 100vw;
   overflow: hidden;
-  padding-bottom: 3rem; /* Space for fixed status bar */
 }
 
 .top-controls {
@@ -308,5 +348,16 @@ body {
 
 canvas {
   max-width: calc(100% - 250px);
+}
+
+.arrow-step-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1rem;
+  font-size: 14px;
+}
+.arrow-step-group input {
+  margin-right: 0.25rem;
 }
 </style>
