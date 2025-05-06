@@ -29,12 +29,36 @@ let ctx = null;
 let dragging = false;
 let dragStart = { x: 0, y: 0 };
 
+function clampTranslation() {
+  const canvas = canvasRef.value;
+  if (!canvas || !props.image) return;
+
+  const padding = 50;
+
+  const scale = props.scale;
+  const imgWidth = props.image.width * scale;
+  const imgHeight = props.image.height * scale;
+
+  const canvasWidth = canvas.width;
+  const canvasHeight = canvas.height;
+
+  const maxOffsetX = Math.max((imgWidth + canvasWidth) / 2 - padding, 0);
+  const maxOffsetY = Math.max((imgHeight + canvasHeight) / 2 - padding, 0);
+
+  canvasTranslation.x = Math.min(
+    Math.max(canvasTranslation.x, -maxOffsetX),
+    maxOffsetX
+  );
+  canvasTranslation.y = Math.min(
+    Math.max(canvasTranslation.y, -maxOffsetY),
+    maxOffsetY
+  );
+}
+
 function handleKeyDown(e) {
   if (!props.image) return;
 
   const step = props.arrowStep;
-
-  console.log(step);
 
   switch (e.key) {
     case "ArrowLeft":
@@ -57,6 +81,7 @@ function handleKeyDown(e) {
       return;
   }
 
+  clampTranslation();
   renderImage();
 }
 
@@ -74,11 +99,10 @@ function onMouseMove(e) {
   if (dragging && props.activeTool === "hand") {
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
-
     canvasTranslation.x += dx;
     canvasTranslation.y += dy;
-
     dragStart = { x: e.clientX, y: e.clientY };
+    clampTranslation();
     renderImage();
   }
 
@@ -174,7 +198,13 @@ function handleResize() {
 }
 
 watch(() => props.image, renderImage);
-watch(() => props.scale, renderImage);
+watch(
+  () => props.scale,
+  () => {
+    clampTranslation();
+    renderImage();
+  }
+);
 
 onMounted(() => {
   window.addEventListener("resize", handleResize);
