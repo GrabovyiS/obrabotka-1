@@ -18,6 +18,14 @@
       </button>
       <button
         type="button"
+        class="resize-btn"
+        @click="showGradation = true"
+        :disabled="!imageElement"
+      >
+        Gradation
+      </button>
+      <button
+        type="button"
         :class="['tool-btn', { active: activeTool === TOOLS.HAND }]"
         @click="setTool(TOOLS.HAND)"
         title="Hand Tool (H): Move image with mouse or arrows"
@@ -66,7 +74,7 @@
 
     <div class="main-panel">
       <CanvasDisplay
-        :arrowStep="Number(arrowStep)"
+        :arrowStep="arrowStep"
         :image="imageElement"
         :scale="scale"
         :activeTool="activeTool"
@@ -90,6 +98,14 @@
       @close="showResizeModal = false"
       @confirm="onResizeConfirm"
     />
+
+    <GradationModal
+      :open="showGradation"
+      :image="originalImage"
+      @close="showGradation = false"
+      @apply="onGradationApply"
+      @preview="onGradationPreview"
+    />
   </div>
 </template>
 
@@ -100,17 +116,21 @@ import CanvasDisplay from "./components/CanvasDisplay.vue";
 import StatusBar from "./components/StatusBar.vue";
 import ResizeModal from "./components/ResizeModal.vue";
 import ColorInspector from "./components/ColorInspector.vue";
+import GradationModal from "./components/GradationModal.vue";
 
 import { parseCustomImage } from "./utils/imageParser";
 import {
   nearestNeighborInterpolation,
   bilinearInterpolation,
 } from "./utils/interpolation";
+import { generateLUT, applyGradation } from "./utils/gradation";
 
 const imageElement = ref(null);
+const originalImage = ref(null);
 const imageMeta = ref(null);
 const scale = ref(1.0);
 const showResizeModal = ref(false);
+const showGradation = ref(false);
 const arrowStep = ref(20);
 
 function calculateInitialScale(img) {
@@ -134,6 +154,7 @@ async function onFileSelected({ file, buffer }) {
       }
       const { image, meta } = await parseCustomImage(buffer);
       imageElement.value = image;
+      originalImage.value = image;
       imageMeta.value = meta;
       scale.value = calculateInitialScale(image);
     } catch (err) {
@@ -148,6 +169,7 @@ async function onFileSelected({ file, buffer }) {
       const fileBits = file.size * 8;
       const depth = Math.round(fileBits / pixels);
       imageElement.value = image;
+      originalImage.value = image;
       imageMeta.value = { width, height, colorDepth: depth };
       scale.value = calculateInitialScale(image);
     };
@@ -160,10 +182,11 @@ function onUrlSelected(url) {
   img.crossOrigin = "anonymous";
   img.onload = () => {
     imageElement.value = img;
+    originalImage.value = img;
     const width = img.width;
     const height = img.height;
     const pixels = width * height;
-    const dummyFileSize = width * height * 3; // estimate 24bpp
+    const dummyFileSize = width * height * 3;
     const depth = Math.round((dummyFileSize * 8) / pixels);
     imageMeta.value = { width, height, colorDepth: depth };
     scale.value = calculateInitialScale(img);
@@ -176,18 +199,16 @@ async function onResizeConfirm({ width, height, method }) {
   if (!imageElement.value) return;
 
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
   canvas.width = imageMeta.value.width;
   canvas.height = imageMeta.value.height;
+  const ctx = canvas.getContext("2d");
   ctx.drawImage(imageElement.value, 0, 0);
   const srcData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  let resizedData;
-  if (method === "nearest") {
-    resizedData = nearestNeighborInterpolation(srcData, width, height);
-  } else {
-    resizedData = bilinearInterpolation(srcData, width, height);
-  }
+  const resizedData =
+    method === "nearest"
+      ? nearestNeighborInterpolation(srcData, width, height)
+      : bilinearInterpolation(srcData, width, height);
 
   const outCanvas = document.createElement("canvas");
   outCanvas.width = width;
@@ -199,7 +220,77 @@ async function onResizeConfirm({ width, height, method }) {
   await new Promise((resolve) => (img.onload = resolve));
 
   imageElement.value = img;
+  originalImage.value = img;
   imageMeta.value = { width, height, colorDepth: imageMeta.value.colorDepth };
+}
+
+function applyGradationToSource(points) {
+  if (!originalImage.value || !imageMeta.value) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = imageMeta.value.width;
+  canvas.height = imageMeta.value.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(originalImage.value, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const lut = generateLUT({
+    x1: points[0].x,
+    y1: points[0].y,
+    x2: points[1].x,
+    y2: points[1].y,
+  });
+
+  const corrected = applyGradation(imageData, lut);
+  ctx.putImageData(corrected, 0, 0);
+
+  return canvas;
+}
+
+function onGradationApply({ points }) {
+  const canvas = applyGradationToSource(points);
+  if (!canvas) return;
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    imageElement.value = img;
+    originalImage.value = img;
+  };
+}
+
+function onGradationPreview({ points, preview }) {
+  if (!imageMeta.value) return;
+
+  if (!preview) {
+    imageElement.value = originalImage.value;
+    return;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = imageMeta.value.width;
+  canvas.height = imageMeta.value.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(originalImage.value, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const lut = generateLUT({
+    x1: points[0].x,
+    y1: points[0].y,
+    x2: points[1].x,
+    y2: points[1].y,
+  });
+
+  const corrected = applyGradation(imageData, lut);
+  ctx.putImageData(corrected, 0, 0);
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    imageElement.value = img;
+  };
 }
 
 const activeTool = ref(null);
@@ -248,7 +339,7 @@ function downloadImage() {
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "resized-image.png";
+    link.download = "processed-image.png";
     link.click();
     URL.revokeObjectURL(link.href);
   }, "image/png");
@@ -310,6 +401,7 @@ fieldset {
 
 .top-controls button:disabled {
   background-color: grey;
+  color: white;
 }
 
 .save-btn {
