@@ -5,30 +5,54 @@
         @file-selected="onFileSelected"
         @url-selected="onUrlSelected"
       />
+
       <button
         type="button"
-        @click="showResizeModal = true"
-        class="resize-btn"
+        class="action-btn"
+        @click="
+          () => {
+            showResizeModal = true;
+            showGradation = false;
+            showFilter = false;
+          }
+        "
         :disabled="!imageElement"
       >
         Resize
       </button>
-      <button class="save-btn" @click="downloadImage" :disabled="!imageElement">
-        Save
-      </button>
       <button
         type="button"
-        class="resize-btn"
-        @click="showGradation = true"
+        class="action-btn"
+        @click="
+          () => {
+            showGradation = true;
+            showFilter = false;
+            showResizeModal = false;
+          }
+        "
         :disabled="!imageElement"
       >
         Gradation
       </button>
       <button
         type="button"
+        class="action-btn"
+        @click="
+          () => {
+            showFilter = true;
+            showGradation = false;
+            showResizeModal = false;
+          }
+        "
+        :disabled="!imageElement"
+      >
+        Filter
+      </button>
+      <button
+        type="button"
         :class="['tool-btn', { active: activeTool === TOOLS.HAND }]"
         @click="setTool(TOOLS.HAND)"
-        title="Hand Tool (H): Move image with mouse or arrows"
+        title="Hand Tool (H): Move image"
       >
         Hand
       </button>
@@ -36,39 +60,42 @@
         type="button"
         :class="['tool-btn', { active: activeTool === TOOLS.EYEDROPPER }]"
         @click="setTool(TOOLS.EYEDROPPER)"
-        title="Eyedropper Tool (I): Pick pixel color"
+        title="Eyedropper Tool (I): Pick color"
       >
         Eyedropper
       </button>
+      <button class="save-btn" @click="downloadImage" :disabled="!imageElement">
+        Save
+      </button>
       <fieldset class="arrow-step-group">
         <legend>Arrow Key Step</legend>
-        <label
-          ><input
+        <label>
+          <input
             type="radio"
             name="step"
             value="5"
             v-model.number="arrowStep"
           />
-          Slow</label
-        >
-        <label
-          ><input
+          Slow
+        </label>
+        <label>
+          <input
             type="radio"
             name="step"
             value="20"
             v-model.number="arrowStep"
           />
-          Normal</label
-        >
-        <label
-          ><input
+          Normal
+        </label>
+        <label>
+          <input
             type="radio"
             name="step"
             value="40"
             v-model.number="arrowStep"
           />
-          Fast</label
-        >
+          Fast
+        </label>
       </fieldset>
     </div>
 
@@ -106,6 +133,13 @@
       @apply="onGradationApply"
       @preview="onGradationPreview"
     />
+
+    <FilterModal
+      :open="showFilter"
+      @close="showFilter = false"
+      @apply="onFilterApply"
+      @preview="onFilterPreview"
+    />
   </div>
 </template>
 
@@ -117,6 +151,7 @@ import StatusBar from "./components/StatusBar.vue";
 import ResizeModal from "./components/ResizeModal.vue";
 import ColorInspector from "./components/ColorInspector.vue";
 import GradationModal from "./components/GradationModal.vue";
+import FilterModal from "./components/FilterModal.vue";
 
 import { parseCustomImage } from "./utils/imageParser";
 import {
@@ -124,13 +159,17 @@ import {
   bilinearInterpolation,
 } from "./utils/interpolation";
 import { generateLUT, applyGradation } from "./utils/gradation";
+import { applyConvolution } from "./utils/convolution";
 
 const imageElement = ref(null);
 const originalImage = ref(null);
 const imageMeta = ref(null);
 const scale = ref(1.0);
+
 const showResizeModal = ref(false);
 const showGradation = ref(false);
+const showFilter = ref(false);
+
 const arrowStep = ref(20);
 
 function calculateInitialScale(img) {
@@ -163,13 +202,13 @@ async function onFileSelected({ file, buffer }) {
   } else {
     const image = new Image();
     image.onload = () => {
-      const width = image.width;
-      const height = image.height;
-      const pixels = width * height;
-      const fileBits = file.size * 8;
-      const depth = Math.round(fileBits / pixels);
       imageElement.value = image;
       originalImage.value = image;
+      const width = image.width;
+      const height = image.height;
+      const fileBits = file.size * 8;
+      const pixels = width * height;
+      const depth = Math.round(fileBits / pixels);
       imageMeta.value = { width, height, colorDepth: depth };
       scale.value = calculateInitialScale(image);
     };
@@ -224,16 +263,14 @@ async function onResizeConfirm({ width, height, method }) {
   imageMeta.value = { width, height, colorDepth: imageMeta.value.colorDepth };
 }
 
-function applyGradationToSource(points) {
-  if (!originalImage.value || !imageMeta.value) return null;
+function onGradationApply({ points }) {
+  if (!originalImage.value || !imageMeta.value) return;
 
   const canvas = document.createElement("canvas");
   canvas.width = imageMeta.value.width;
   canvas.height = imageMeta.value.height;
-
   const ctx = canvas.getContext("2d");
   ctx.drawImage(originalImage.value, 0, 0);
-
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   const lut = generateLUT({
@@ -244,15 +281,8 @@ function applyGradationToSource(points) {
   });
 
   const corrected = applyGradation(imageData, lut);
+
   ctx.putImageData(corrected, 0, 0);
-
-  return canvas;
-}
-
-function onGradationApply({ points }) {
-  const canvas = applyGradationToSource(points);
-  if (!canvas) return;
-
   const img = new Image();
   img.src = canvas.toDataURL();
   img.onload = () => {
@@ -262,9 +292,7 @@ function onGradationApply({ points }) {
 }
 
 function onGradationPreview({ points, preview }) {
-  if (!imageMeta.value) return;
-
-  if (!preview) {
+  if (!preview || !originalImage.value || !imageMeta.value) {
     imageElement.value = originalImage.value;
     return;
   }
@@ -274,8 +302,8 @@ function onGradationPreview({ points, preview }) {
   canvas.height = imageMeta.value.height;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(originalImage.value, 0, 0);
-
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
   const lut = generateLUT({
     x1: points[0].x,
     y1: points[0].y,
@@ -285,6 +313,50 @@ function onGradationPreview({ points, preview }) {
 
   const corrected = applyGradation(imageData, lut);
   ctx.putImageData(corrected, 0, 0);
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    imageElement.value = img;
+  };
+}
+
+function onFilterApply({ kernel }) {
+  if (!originalImage.value || !imageMeta.value) return;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = imageMeta.value.width;
+  canvas.height = imageMeta.value.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(originalImage.value, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const filtered = applyConvolution(imageData, kernel);
+
+  ctx.putImageData(filtered, 0, 0);
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    imageElement.value = img;
+    originalImage.value = img;
+  };
+}
+
+function onFilterPreview({ kernel, preview }) {
+  if (!preview || !originalImage.value || !imageMeta.value) {
+    imageElement.value = originalImage.value;
+    return;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = imageMeta.value.width;
+  canvas.height = imageMeta.value.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(originalImage.value, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const filtered = applyConvolution(imageData, kernel);
+  ctx.putImageData(filtered, 0, 0);
 
   const img = new Image();
   img.src = canvas.toDataURL();
@@ -377,7 +449,7 @@ fieldset {
   position: relative;
 }
 
-.resize-btn {
+.action-btn {
   padding: 0.5rem 1rem;
   background: #007acc;
   color: white;
@@ -387,7 +459,7 @@ fieldset {
   cursor: pointer;
 }
 
-.resize-btn:hover {
+.action-btn:hover {
   background: #005fa3;
 }
 
@@ -421,10 +493,11 @@ fieldset {
   cursor: pointer;
 }
 
-.tool-btn.active {
-  background: #007acc;
+.tool-btn.active,
+.tool-btn:active {
+  background: #52a6de;
   color: #fff;
-  border-color: #005fa3;
+  border-color: #52a6de;
 }
 
 .tool-btn:hover {

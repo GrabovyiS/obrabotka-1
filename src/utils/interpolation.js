@@ -1,72 +1,85 @@
 export function nearestNeighborInterpolation(
-  srcImageData,
+  sourceImageData,
   targetWidth,
   targetHeight
 ) {
-  const src = srcImageData.data;
-  const srcWidth = srcImageData.width;
-  const srcHeight = srcImageData.height;
+  const sourcePixels = sourceImageData.data;
+  const sourceWidth = sourceImageData.width;
+  const sourceHeight = sourceImageData.height;
 
-  const dstImageData = new ImageData(targetWidth, targetHeight);
-  const dst = dstImageData.data;
+  const resizedImageData = new ImageData(targetWidth, targetHeight);
+  const resizedPixels = resizedImageData.data;
 
-  const xRatio = srcWidth / targetWidth;
-  const yRatio = srcHeight / targetHeight;
+  const widthScaleFactor = sourceWidth / targetWidth;
+  const heightScaleFactor = sourceHeight / targetHeight;
 
-  for (let y = 0; y < targetHeight; y++) {
-    for (let x = 0; x < targetWidth; x++) {
-      const nearestX = Math.floor(x * xRatio);
-      const nearestY = Math.floor(y * yRatio);
+  for (let targetY = 0; targetY < targetHeight; targetY++) {
+    for (let targetX = 0; targetX < targetWidth; targetX++) {
+      const nearestSourceX = Math.floor(targetX * widthScaleFactor);
+      const nearestSourceY = Math.floor(targetY * heightScaleFactor);
 
-      const srcIndex = (nearestY * srcWidth + nearestX) * 4;
-      const dstIndex = (y * targetWidth + x) * 4;
+      // * 4 because of ImageData structure
+      const sourceIndex = (nearestSourceY * sourceWidth + nearestSourceX) * 4;
+      const targetIndex = (targetY * targetWidth + targetX) * 4;
 
-      dst[dstIndex] = src[srcIndex]; // R
-      dst[dstIndex + 1] = src[srcIndex + 1]; // G
-      dst[dstIndex + 2] = src[srcIndex + 2]; // B
-      dst[dstIndex + 3] = src[srcIndex + 3]; // A
+      resizedPixels[targetIndex] = sourcePixels[sourceIndex]; // R
+      resizedPixels[targetIndex + 1] = sourcePixels[sourceIndex + 1]; // G
+      resizedPixels[targetIndex + 2] = sourcePixels[sourceIndex + 2]; // B
+      resizedPixels[targetIndex + 3] = sourcePixels[sourceIndex + 3]; // A
     }
   }
 
-  return dstImageData;
+  return resizedImageData;
 }
 
-export function bilinearInterpolation(srcImageData, targetWidth, targetHeight) {
-  const src = srcImageData.data;
-  const srcWidth = srcImageData.width;
-  const srcHeight = srcImageData.height;
+export function bilinearInterpolation(
+  sourceImageData,
+  targetWidth,
+  targetHeight
+) {
+  const sourcePixels = sourceImageData.data;
+  const sourceWidth = sourceImageData.width;
+  const sourceHeight = sourceImageData.height;
 
-  const dstImageData = new ImageData(targetWidth, targetHeight);
-  const dst = dstImageData.data;
+  const resizedImageData = new ImageData(targetWidth, targetHeight);
+  const resizedPixels = resizedImageData.data;
 
-  const xRatio = (srcWidth - 1) / targetWidth;
-  const yRatio = (srcHeight - 1) / targetHeight;
+  const scaleX = (sourceWidth - 1) / targetWidth;
+  const scaleY = (sourceHeight - 1) / targetHeight;
 
   for (let y = 0; y < targetHeight; y++) {
     for (let x = 0; x < targetWidth; x++) {
-      const xL = Math.floor(x * xRatio);
-      const yT = Math.floor(y * yRatio);
-      const xH = Math.min(xL + 1, srcWidth - 1);
-      const yB = Math.min(yT + 1, srcHeight - 1);
+      const sourceX = x * scaleX;
+      const sourceY = y * scaleY;
 
-      const xWeight = x * xRatio - xL;
-      const yWeight = y * yRatio - yT;
+      const xFloor = Math.floor(sourceX);
+      const yFloor = Math.floor(sourceY);
+      const xCeil = Math.min(xFloor + 1, sourceWidth - 1);
+      const yCeil = Math.min(yFloor + 1, sourceHeight - 1);
 
-      const srcTL = (yT * srcWidth + xL) * 4;
-      const srcTR = (yT * srcWidth + xH) * 4;
-      const srcBL = (yB * srcWidth + xL) * 4;
-      const srcBR = (yB * srcWidth + xH) * 4;
+      const xWeight = sourceX - xFloor;
+      const yWeight = sourceY - yFloor;
 
-      for (let c = 0; c < 4; c++) {
-        // R, G, B, A
-        const top = src[srcTL + c] * (1 - xWeight) + src[srcTR + c] * xWeight;
+      const topLeftIndex = (yFloor * sourceWidth + xFloor) * 4;
+      const topRightIndex = (yFloor * sourceWidth + xCeil) * 4;
+      const bottomLeftIndex = (yCeil * sourceWidth + xFloor) * 4;
+      const bottomRightIndex = (yCeil * sourceWidth + xCeil) * 4;
+
+      for (let channel = 0; channel < 4; channel++) {
+        const top =
+          sourcePixels[topLeftIndex + channel] * (1 - xWeight) +
+          sourcePixels[topRightIndex + channel] * xWeight;
+
         const bottom =
-          src[srcBL + c] * (1 - xWeight) + src[srcBR + c] * xWeight;
-        dst[(y * targetWidth + x) * 4 + c] =
-          top * (1 - yWeight) + bottom * yWeight;
+          sourcePixels[bottomLeftIndex + channel] * (1 - xWeight) +
+          sourcePixels[bottomRightIndex + channel] * xWeight;
+
+        const interpolated = top * (1 - yWeight) + bottom * yWeight;
+
+        resizedPixels[(y * targetWidth + x) * 4 + channel] = interpolated;
       }
     }
   }
 
-  return dstImageData;
+  return resizedImageData;
 }
