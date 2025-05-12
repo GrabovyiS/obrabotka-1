@@ -206,10 +206,7 @@ async function onFileSelected({ file, buffer }) {
       originalImage.value = image;
       const width = image.width;
       const height = image.height;
-      const fileBits = file.size * 8;
-      const pixels = width * height;
-      const depth = Math.round(fileBits / pixels);
-      imageMeta.value = { width, height, colorDepth: depth };
+      imageMeta.value = { width, height };
       scale.value = calculateInitialScale(image);
     };
     image.src = URL.createObjectURL(file);
@@ -224,10 +221,7 @@ function onUrlSelected(url) {
     originalImage.value = img;
     const width = img.width;
     const height = img.height;
-    const pixels = width * height;
-    const dummyFileSize = width * height * 3;
-    const depth = Math.round((dummyFileSize * 8) / pixels);
-    imageMeta.value = { width, height, colorDepth: depth };
+    imageMeta.value = { width, height };
     scale.value = calculateInitialScale(img);
   };
   img.onerror = () => alert("Failed to load image from URL.");
@@ -260,7 +254,7 @@ async function onResizeConfirm({ width, height, method }) {
 
   imageElement.value = img;
   originalImage.value = img;
-  imageMeta.value = { width, height, colorDepth: imageMeta.value.colorDepth };
+  imageMeta.value = { width, height };
 }
 
 function onGradationApply({ points }) {

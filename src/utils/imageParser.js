@@ -46,14 +46,12 @@ export async function parseCustomImage(buffer) {
   await new Promise((resolve) => (image.onload = resolve));
 
   const fileBits = buffer.byteLength * 8;
-  const colorDepth = Math.round(fileBits / pixels);
 
   return {
     image,
     meta: {
       width,
       height,
-      colorDepth,
       hasMask,
     },
   };

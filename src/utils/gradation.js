@@ -9,14 +9,18 @@ export function generateLUT({ x1, y1, x2, y2 }) {
     } else if (i > x2) {
       result = y2;
     } else {
-      const t = (i - x1) / (x2 - x1);
-      result = y1 + t * (y2 - y1);
+      result = linearMap(i, x1, x2, y1, y2);
     }
 
     lut[i] = Math.round(clamp(result, 0, 255));
   }
 
   return lut;
+}
+
+function linearMap(value, inMin, inMax, outMin, outMax) {
+  const t = (value - inMin) / (inMax - inMin);
+  return outMin + t * (outMax - outMin);
 }
 
 export function applyGradation(imageData, lut) {

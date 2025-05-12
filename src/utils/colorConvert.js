@@ -1,19 +1,15 @@
-// --- Constants ---
 const D65 = { X: 95.047, Y: 100.0, Z: 108.883 };
 
-// --- Utility: linearize sRGB channel ---
 function srgbToLinear(c) {
   c /= 255;
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }
 
-// --- RGB → XYZ ---
 export function rgbToXyz([r, g, b]) {
   const rl = srgbToLinear(r);
   const gl = srgbToLinear(g);
   const bl = srgbToLinear(b);
 
-  // Matrix from sRGB to XYZ (D65)
   const X = rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375;
   const Y = rl * 0.2126729 + gl * 0.7151522 + bl * 0.072175;
   const Z = rl * 0.0193339 + gl * 0.119192 + bl * 0.9503041;
@@ -21,7 +17,6 @@ export function rgbToXyz([r, g, b]) {
   return [X * 100, Y * 100, Z * 100];
 }
 
-// --- XYZ → Lab ---
 function f(t) {
   const delta = 6 / 29;
   return t > Math.pow(delta, 3)
@@ -41,7 +36,6 @@ export function xyzToLab([X, Y, Z]) {
   return [L, a, b];
 }
 
-// --- Lab → LCH ---
 export function labToLch([L, a, b]) {
   const C = Math.sqrt(a * a + b * b);
   let H = Math.atan2(b, a) * (180 / Math.PI);
@@ -49,14 +43,13 @@ export function labToLch([L, a, b]) {
   return [L, C, H];
 }
 
-// --- RGB → OKLCH (approximate) ---
 export function rgbToOklch([r, g, b]) {
   // Convert sRGB to linear RGB
   const rl = srgbToLinear(r);
   const gl = srgbToLinear(g);
   const bl = srgbToLinear(b);
 
-  // Linear RGB → LMS
+  // Linear RGB to LMS
   const l = 0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl;
   const m = 0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl;
   const s = 0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl;

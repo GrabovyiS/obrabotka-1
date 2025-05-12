@@ -18,8 +18,7 @@
     </div>
 
     <span v-if="imageMeta">
-      {{ imageMeta.width }} × {{ imageMeta.height }} px —
-      {{ imageMeta.colorDepth }}-bit
+      {{ imageMeta.width }} × {{ imageMeta.height }} px
     </span>
 
     <label v-if="imageMeta" class="zoom-label">

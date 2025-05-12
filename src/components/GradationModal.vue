@@ -101,14 +101,14 @@ watch([x1, y1, x2, y2, preview], () => {
 <style scoped>
 .gradation-modal {
   position: fixed;
-  top: 60px;
-  right: 30px;
+  top: 80px;
+  left: 10px;
+  bottom: 80px;
+  box-shadow: 0px 0 10px rgba(0, 0, 0, 0.3);
   width: 350px;
-  height: calc(100vh - 60px);
   background: #fff;
   border-left: 1px solid #ccc;
   padding: 1rem;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
   z-index: 500;
 }

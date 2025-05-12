@@ -92,15 +92,15 @@ function close() {
 <style scoped>
 .filter-modal {
   position: fixed;
-  top: 60px;
-  right: 0;
-  width: 320px;
+  top: 80px;
+  left: 10px;
+  bottom: 80px;
+  box-shadow: 0px 0 10px rgba(0, 0, 0, 0.3);
+  width: 350px;
   background: white;
   padding: 1rem;
   border-left: 1px solid #ccc;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
   z-index: 500;
-  height: calc(100vh - 60px);
   overflow-y: auto;
 }
 
