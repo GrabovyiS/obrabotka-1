@@ -58,7 +58,7 @@ function clampTranslation() {
 function handleKeyDown(e) {
   if (!props.image) return;
 
-  const step = props.arrowStep;
+  const step = Number(props.arrowStep);
 
   switch (e.key) {
     case "ArrowLeft":
